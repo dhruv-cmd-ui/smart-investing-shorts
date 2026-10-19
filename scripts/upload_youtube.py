@@ -44,6 +44,7 @@ def get_authenticated_service():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Build the upload request but don't actually call the API")
+    parser.add_argument("--public", action="store_true", help="Upload as public instead of the default private (use once you trust the pipeline)")
     args = parser.parse_args()
 
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
@@ -71,7 +72,10 @@ def main():
     youtube = get_authenticated_service()
     body = {
         "snippet": {"title": title, "description": description, "categoryId": "27"},  # 27 = Education
-        "status": {"privacyStatus": "public", "selfDeclaredMadeForKids": False},
+        "status": {
+            "privacyStatus": "public" if args.public else "private",
+            "selfDeclaredMadeForKids": False,
+        },
     }
     media = MediaFileUpload(str(VIDEO_PATH), chunksize=-1, resumable=True, mimetype="video/mp4")
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
