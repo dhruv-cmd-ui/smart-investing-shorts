@@ -1,0 +1,5 @@
+config/youtube_client_secret.json
+config/youtube_token.pickle
+remotion-project/node_modules/
+remotion-project/out/
+.env

@@ -1,0 +1,57 @@
+name: Generate and upload Short
+
+on:
+  schedule:
+    # Tuesdays and Fridays, 05:00 UTC = 10:30 IST — 2x/week keeps well inside free-tier quotas
+    - cron: "0 5 * * 2,5"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: pip install -r scripts/requirements.txt
+
+      - name: Install Remotion dependencies
+        working-directory: remotion-project
+        run: npm ci
+
+      - name: Generate voiceover
+        env:
+          ELEVENLABS_API_KEY: ${{ secrets.ELEVENLABS_API_KEY }}
+        run: python scripts/generate_voiceover.py
+
+      - name: Render video
+        working-directory: remotion-project
+        run: npx remotion render src/index.ts MainVideo out/video.mp4
+
+      - name: Decode YouTube credentials
+        run: |
+          mkdir -p config
+          echo "${{ secrets.YOUTUBE_CLIENT_SECRET_B64 }}" | base64 -d > config/youtube_client_secret.json
+          echo "${{ secrets.YOUTUBE_TOKEN_PICKLE_B64 }}" | base64 -d > config/youtube_token.pickle
+
+      - name: Upload to YouTube
+        run: python scripts/upload_youtube.py
+
+      - name: Commit rotation state
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scripts/state.json
+          git diff --staged --quiet || git commit -m "Advance script rotation state [skip ci]"
+          git push
